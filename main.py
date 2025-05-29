@@ -389,6 +389,132 @@ def main():
 
     # Main dashboard
     if symbols:
+        # Potential Buy Stocks Scanner
+        st.header("🎯 Potential Buy Stocks Scanner")
+        
+        # Extended stock universe for scanning
+        stock_universe = [
+            "AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "META", "NVDA", "NFLX", "AMD", "CRM",
+            "ORCL", "ADBE", "INTC", "CSCO", "IBM", "QCOM", "TXN", "AVGO", "NOW", "INTU",
+            "MU", "AMAT", "LRCX", "KLAC", "MRVL", "MCHP", "SNPS", "CDNS", "FTNT", "PANW",
+            "ZS", "OKTA", "CRWD", "DDOG", "NET", "MDB", "SNOW", "PLTR", "U", "DOCN",
+            "JPM", "BAC", "WFC", "C", "GS", "MS", "BLK", "AXP", "V", "MA",
+            "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "TMO", "ABT", "DHR", "BMY",
+            "KO", "PEP", "WMT", "PG", "HD", "MCD", "COST", "LOW", "TGT", "SBUX",
+            "DIS", "CMCSA", "VZ", "T", "CHTR", "TMUS", "DISH", "PARA", "WBD", "NWSA",
+            "XOM", "CVX", "COP", "EOG", "SLB", "OXY", "PSX", "VLO", "MPC", "HES",
+            "BA", "RTX", "LMT", "NOC", "GD", "HON", "MMM", "CAT", "DE", "EMR"
+        ]
+        
+        if st.button("🔍 Scan for Buy Opportunities", type="primary"):
+            with st.spinner("Scanning stocks for buy signals..."):
+                potential_buys = []
+                
+                # Create progress bar
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                for i, symbol in enumerate(stock_universe):
+                    try:
+                        # Update progress
+                        progress = (i + 1) / len(stock_universe)
+                        progress_bar.progress(progress)
+                        status_text.text(f"Scanning {symbol}... ({i+1}/{len(stock_universe)})")
+                        
+                        # Get real-time data
+                        real_time_data = data_manager.get_real_time_price(symbol)
+                        
+                        if real_time_data['current_price'] > 0:
+                            # Generate signal
+                            signal_data = analyzer.generate_signal(real_time_data['current_price'])
+                            
+                            # Check if it's a buy signal
+                            if signal_data['signal'] == 'BUY':
+                                potential_buys.append({
+                                    'Symbol': symbol,
+                                    'Current Price': real_time_data['current_price'],
+                                    'Distance from Round': signal_data['distance_from_round'],
+                                    'Confidence': signal_data['confidence'],
+                                    'Change %': real_time_data['change_percent'],
+                                    'Volume': real_time_data.get('volume', 0),
+                                    'Reasoning': signal_data['reasoning']
+                                })
+                        
+                        # Small delay to avoid overwhelming the API
+                        time.sleep(0.1)
+                        
+                    except Exception as e:
+                        continue  # Skip problematic symbols
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
+                # Display results
+                if potential_buys:
+                    # Sort by confidence (highest first)
+                    potential_buys.sort(key=lambda x: x['Confidence'], reverse=True)
+                    
+                    # Limit to top 20
+                    top_buys = potential_buys[:20]
+                    
+                    st.success(f"Found {len(potential_buys)} stocks with buy signals. Showing top 20:")
+                    
+                    # Create DataFrame for display
+                    buy_df = pd.DataFrame(top_buys)
+                    
+                    # Format columns for better display
+                    buy_df['Current Price'] = buy_df['Current Price'].apply(lambda x: f"${x:.2f}")
+                    buy_df['Distance from Round'] = buy_df['Distance from Round'].apply(lambda x: f"{x:+.3f}")
+                    buy_df['Confidence'] = buy_df['Confidence'].apply(lambda x: f"{x:.1%}")
+                    buy_df['Change %'] = buy_df['Change %'].apply(lambda x: f"{x:+.2f}%")
+                    buy_df['Volume'] = buy_df['Volume'].apply(lambda x: f"{x:,.0f}" if x > 0 else "N/A")
+                    
+                    # Display table with custom styling
+                    st.dataframe(
+                        buy_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Symbol": st.column_config.TextColumn("Symbol", width="small"),
+                            "Current Price": st.column_config.TextColumn("Price", width="small"),
+                            "Distance from Round": st.column_config.TextColumn("Distance", width="small"),
+                            "Confidence": st.column_config.TextColumn("Confidence", width="small"),
+                            "Change %": st.column_config.TextColumn("Change %", width="small"),
+                            "Volume": st.column_config.TextColumn("Volume", width="medium"),
+                            "Reasoning": st.column_config.TextColumn("Reasoning", width="large")
+                        }
+                    )
+                    
+                    # Additional insights
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        avg_confidence = sum(x['Confidence'] for x in potential_buys) / len(potential_buys)
+                        st.metric("Average Confidence", f"{avg_confidence:.1%}")
+                    
+                    with col2:
+                        positive_change = sum(1 for x in potential_buys if x['Change %'] > 0)
+                        st.metric("Stocks Up Today", f"{positive_change}/{len(potential_buys)}")
+                    
+                    with col3:
+                        strong_signals = sum(1 for x in potential_buys if x['Confidence'] > 0.7)
+                        st.metric("High Confidence Signals", f"{strong_signals}")
+                    
+                    # Export functionality
+                    if st.button("📊 Download Buy List as CSV"):
+                        csv = pd.DataFrame(potential_buys).to_csv(index=False)
+                        st.download_button(
+                            label="Download CSV",
+                            data=csv,
+                            file_name=f"buy_signals_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv"
+                        )
+                
+                else:
+                    st.warning("No stocks currently meet the buy criteria (X.1 pattern). Try again later as market conditions change.")
+                    st.info("The X.1 pattern requires stocks to close between 0.05 and 0.15 above round numbers (e.g., $100.05 to $100.15)")
+
         # Real-time monitoring section
         st.header("🔴 Live Monitoring Dashboard")
 
