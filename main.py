@@ -610,7 +610,7 @@ def main():
                 # Create tabs for different views
                 tab1, tab2, tab3, tab4 = st.tabs(["Price Chart", "Performance", "Signal History", "Statistics"])
 
-                with subtab1:
+                with tab1:
                     # Price chart with signals
                     chart = create_price_chart(historical_data, selected_symbol, signals)
                     st.plotly_chart(chart, use_container_width=True)
