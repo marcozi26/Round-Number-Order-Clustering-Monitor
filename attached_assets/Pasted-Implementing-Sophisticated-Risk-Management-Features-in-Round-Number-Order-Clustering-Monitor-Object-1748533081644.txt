@@ -1,0 +1,89 @@
+Implementing Sophisticated Risk Management Features in Round-Number Order Clustering Monitor
+Objective:
+In a new py file create Enhance the "Round-Number Order Clustering Monitor" app with advanced risk management capabilities to make it production-ready for live trading. The implementation should follow all technical specifications and include all components mentioned below.
+Technical Requirements:
+Implementation Approach
+Modular Python implementation that integrates seamlessly with existing codebase
+All new features should maintain the current Streamlit interface while adding new risk management tabs/visualizations
+Follow the exact file structure and class/method organization shown in the examples
+Required Features
+A. Position Sizing System
+Implement calculate_position_size() function that:
+Takes account balance, risk percentage, entry price and stop-loss price as inputs
+Returns share quantity that limits loss to the specified risk percentage
+Add position size display next to each generated signal
+B. Dynamic Stop-Loss Mechanism
+Create ATR calculation in data_loader.py (get_atr() method) using 14-day period
+Implement calculate_stop_loss() that:
+Uses ATR multiplied by volatility factor (default 1.5)
+Places stops below support for buys, above resistance for sells
+Display stop levels on the price charts
+C. Risk-Adjusted Signal Scoring
+Develop scoring system (calculate_risk_score()) that evaluates:
+Volatility (ATR as percentage of price)
+Volume (relative to average)
+Market trend alignment
+Color-code signals based on score (green=high confidence, yellow=medium, red=low)
+D. Portfolio Correlation Checks
+Implement check_portfolio_correlation() that:
+Downloads 6 months of price data for all watchlist symbols
+Calculates correlation matrix
+Prevents adding highly correlated (>0.7) new positions
+Add warning system when correlation thresholds breached
+E. Drawdown Protection
+Create DrawdownProtector class that:
+Tracks peak and current portfolio balance
+Automatically reduces position sizes when drawdown exceeds user-set limit (default 10%)
+Implements risk multiplier that scales from 1.0 to 0.1 based on drawdown severity
+Add balance tracking interface
+F. Volatility-Adjusted Sizing
+Replace basic position sizing with volatility_adjusted_position() that:
+Uses ATR-based stops instead of fixed percentage stops
+Adjusts position sizes inversely to current volatility
+Add ATR display to signal cards
+G. Time-Based Risk Reduction
+Implement time_risk_adjustment() that:
+Reduces position sizes during last 2 market hours
+Uses progressive scaling (100% → 75% → 50%)
+Integrate with market hours schedule (9:30-16:00 ET)
+H. Sector Exposure Limits
+Create sector mapping dictionary for common symbols
+Implement check_sector_exposure() that:
+Tracks current sector allocations
+Enforces maximum sector exposure (default 30%)
+Add sector visualization pie chart
+User Interface Requirements
+New "Risk Management" tab in Streamlit containing:
+Sliders for all risk parameters (default values from examples)
+Portfolio risk gauge visualization
+Sector exposure pie chart
+Drawdown protection status panel
+Enhanced signal display showing:
+Position sizes
+Stop levels
+Risk scores
+Warning system for:
+High correlation additions
+Volatility alerts
+Sector limit breaches
+Implementation Steps
+Phase 1: Core risk infrastructure (position sizing, stops, scoring)
+Phase 2: Portfolio protections (drawdown, correlation, sector)
+Phase 3: UI integration and visualization
+Delivery Requirements
+Clean, commented code matching original style
+Complete integration with existing signal generation
+Documentation for all new parameters
+Example risk scenarios showing system responses
+Additional Notes:
+All mathematical calculations should use vectorized pandas/numpy operations
+Error handling for all API calls and edge cases
+Memory-efficient implementation for correlation calculations
+Real-time updates for all risk metrics
+Acceptance Criteria:
+The enhanced app should allow users to:
+Set personalized risk parameters
+View real-time risk assessments for each signal
+Understand position sizing rationale
+See visualizations of portfolio risk factors
+Receive alerts before exceeding risk thresholds
