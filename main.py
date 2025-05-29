@@ -425,8 +425,8 @@ def main():
     with main_tab1:
         # Main dashboard
         if symbols:
-        # Potential Buy Stocks Scanner
-        st.header("🎯 Potential Buy Stocks Scanner")
+            # Potential Buy Stocks Scanner
+            st.header("🎯 Potential Buy Stocks Scanner")
 
         # Extended stock universe for scanning
         stock_universe = [
