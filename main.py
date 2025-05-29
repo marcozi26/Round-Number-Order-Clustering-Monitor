@@ -12,6 +12,15 @@ from typing import List, Dict, Tuple
 import warnings
 warnings.filterwarnings('ignore')
 
+# Import risk management components
+from risk_management import (
+    RiskManager, 
+    DrawdownProtector, 
+    create_risk_management_interface,
+    calculate_enhanced_signal_with_risk,
+    display_enhanced_signal_card
+)
+
 # Configure Streamlit page
 st.set_page_config(
     page_title="Round-Number Order Clustering Monitor",
@@ -360,6 +369,7 @@ def main():
     # Initialize components
     analyzer = StockClusteringAnalyzer()
     data_manager = DataManager()
+    risk_manager = RiskManager()
 
     # Sidebar configuration
     st.sidebar.header("Configuration")
@@ -405,8 +415,16 @@ def main():
             remaining_time = refresh_interval - int(time_since_refresh)
             countdown_placeholder.write(f"⏱️ Next refresh in: {remaining_time}s")
 
-    # Main dashboard
-    if symbols:
+    # Create main tabs
+    main_tab1, main_tab2 = st.tabs(["📊 Trading Dashboard", "⚠️ Risk Management"])
+    
+    with main_tab2:
+        # Risk Management Interface
+        risk_params = create_risk_management_interface(risk_manager, symbols)
+    
+    with main_tab1:
+        # Main dashboard
+        if symbols:
         # Potential Buy Stocks Scanner
         st.header("🎯 Potential Buy Stocks Scanner")
 
@@ -547,151 +565,175 @@ def main():
                 real_time_data = data_manager.get_real_time_price(symbol)
 
                 if real_time_data['current_price'] > 0:
-                    # Generate signal
+                    # Generate basic signal
                     signal_data = analyzer.generate_signal(real_time_data['current_price'])
-                    current_signals.append({**signal_data, 'symbol': symbol})
+                    signal_data['symbol'] = symbol
+                    signal_data['volume'] = real_time_data.get('volume', 0)
+                    
+                    # Get historical data for risk calculations
+                    historical_data = data_manager.fetch_stock_data(symbol, "1mo")
+                    
+                    # Enhance signal with risk management if risk params are available
+                    if 'risk_params' in locals() and not historical_data.empty:
+                        enhanced_signal = calculate_enhanced_signal_with_risk(
+                            signal_data, risk_manager, historical_data, risk_params
+                        )
+                        current_signals.append(enhanced_signal)
+                        
+                        # Display enhanced signal card
+                        display_enhanced_signal_card(enhanced_signal, real_time_data)
+                    else:
+                        current_signals.append(signal_data)
+                        
+                        # Display basic signal card (fallback)
+                        change_color = "green" if real_time_data['change'] >= 0 else "red"
+                        signal_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "gray"}[signal_data['signal']]
 
-                    # Display stock card
-                    change_color = "green" if real_time_data['change'] >= 0 else "red"
-                    signal_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "gray"}[signal_data['signal']]
-
-                    st.markdown(f"""
-                    <div style="border: 2px solid {signal_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                        <h3 style="margin: 0; color: {signal_color};">{symbol}</h3>
-                        <p style="font-size: 24px; margin: 5px 0;">${real_time_data['current_price']:.2f}</p>
-                        <p style="color: {change_color}; margin: 5px 0;">
-                            {real_time_data['change']:+.2f} ({real_time_data['change_percent']:+.1f}%)
-                        </p>
-                        <p style="margin: 5px 0;"><strong>Signal:</strong> 
-                            <span style="color: {signal_color}; font-weight: bold;">{signal_data['signal']}</span>
-                        </p>
-                        <p style="margin: 5px 0; font-size: 12px;">
-                            <strong>Day's Range:</strong> ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}
-                        </p>
-                        <p style="margin: 5px 0; font-size: 12px;">
-                            <strong>52W Range:</strong> ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}
-                        </p>
-                        <p style="margin: 5px 0; font-size: 12px;">
-                            Distance from round: {signal_data['distance_from_round']:+.3f}
-                        </p>
-                        <p style="margin: 5px 0; font-size: 12px;">
-                            Confidence: {signal_data['confidence']:.1%}
-                        </p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                        <div style="border: 2px solid {signal_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                            <h3 style="margin: 0; color: {signal_color};">{symbol}</h3>
+                            <p style="font-size: 24px; margin: 5px 0;">${real_time_data['current_price']:.2f}</p>
+                            <p style="color: {change_color}; margin: 5px 0;">
+                                {real_time_data['change']:+.2f} ({real_time_data['change_percent']:+.1f}%)
+                            </p>
+                            <p style="margin: 5px 0;"><strong>Signal:</strong> 
+                                <span style="color: {signal_color}; font-weight: bold;">{signal_data['signal']}</span>
+                            </p>
+                            <p style="margin: 5px 0; font-size: 12px;">
+                                <strong>Day's Range:</strong> ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}
+                            </p>
+                            <p style="margin: 5px 0; font-size: 12px;">
+                                <strong>52W Range:</strong> ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}
+                            </p>
+                            <p style="margin: 5px 0; font-size: 12px;">
+                                Distance from round: {signal_data['distance_from_round']:+.3f}
+                            </p>
+                            <p style="margin: 5px 0; font-size: 12px;">
+                                Confidence: {signal_data['confidence']:.1%}
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
         # Active signals summary
-        active_signals = [s for s in current_signals if s['signal'] != 'NEUTRAL']
+            active_signals = [s for s in current_signals if s['signal'] != 'NEUTRAL']
 
-        if active_signals:
-            st.header("🚨 Active Trading Signals")
+            if active_signals:
+                st.header("🚨 Active Trading Signals")
 
-            signal_df = pd.DataFrame(active_signals)
-            st.dataframe(
-                signal_df[['symbol', 'signal', 'price', 'distance_from_round', 'confidence', 'reasoning']],
-                use_container_width=True
-            )
+                # Create enhanced signals table
+                if active_signals and 'risk_score' in active_signals[0]:
+                    # Enhanced signals with risk data
+                    enhanced_df = pd.DataFrame(active_signals)
+                    display_columns = ['symbol', 'signal', 'price', 'position_size', 'risk_amount', 'risk_level', 'confidence']
+                    available_columns = [col for col in display_columns if col in enhanced_df.columns]
+                    st.dataframe(enhanced_df[available_columns], use_container_width=True)
+                else:
+                    # Basic signals
+                    signal_df = pd.DataFrame(active_signals)
+                    basic_columns = ['symbol', 'signal', 'price', 'distance_from_round', 'confidence', 'reasoning']
+                    available_columns = [col for col in basic_columns if col in signal_df.columns]
+                    st.dataframe(signal_df[available_columns], use_container_width=True)
 
-        # Detailed analysis section
-        st.header("📊 Detailed Analysis")
+            # Detailed analysis section
+            st.header("📊 Detailed Analysis")
 
-        selected_symbol = st.selectbox("Select symbol for detailed analysis:", symbols)
+            selected_symbol = st.selectbox("Select symbol for detailed analysis:", symbols)
 
         if selected_symbol:
-            # Fetch historical data
-            historical_data = data_manager.fetch_stock_data(selected_symbol, analysis_period)
+                # Fetch historical data
+                historical_data = data_manager.fetch_stock_data(selected_symbol, analysis_period)
 
-            if not historical_data.empty:
-                # Analyze historical performance
-                signals, performance_data = analyze_historical_performance(
-                    historical_data, analyzer, holding_period
-                )
+                if not historical_data.empty:
+                    # Analyze historical performance
+                    signals, performance_data = analyze_historical_performance(
+                        historical_data, analyzer, holding_period
+                    )
 
-                # Create tabs for different views
-                tab1, tab2, tab3, tab4 = st.tabs(["Price Chart", "Performance", "Signal History", "Statistics"])
+                    # Create tabs for different views
+                    tab1, tab2, tab3, tab4 = st.tabs(["Price Chart", "Performance", "Signal History", "Statistics"])
 
-                with tab1:
-                    # Price chart with signals
-                    chart = create_price_chart(historical_data, selected_symbol, signals)
-                    st.plotly_chart(chart, use_container_width=True)
+                    with tab1:
+                        # Price chart with signals
+                        chart = create_price_chart(historical_data, selected_symbol, signals)
+                        st.plotly_chart(chart, use_container_width=True)
 
-                with tab2:
-                    if not performance_data.empty:
-                        # Performance chart
-                        perf_chart = create_performance_chart(performance_data)
-                        st.plotly_chart(perf_chart, use_container_width=True)
+                    with tab2:
+                        if not performance_data.empty:
+                            # Performance chart
+                            perf_chart = create_performance_chart(performance_data)
+                            st.plotly_chart(perf_chart, use_container_width=True)
 
-                        # Performance metrics
-                        col1, col2, col3 = st.columns(3)
+                            # Performance metrics
+                            col1, col2, col3 = st.columns(3)
 
-                        buy_returns = performance_data['buy_returns'][performance_data['buy_returns'] != 0]
-                        sell_returns = performance_data['sell_returns'][performance_data['sell_returns'] != 0]
+                            buy_returns = performance_data['buy_returns'][performance_data['buy_returns'] != 0]
+                            sell_returns = performance_data['sell_returns'][performance_data['sell_returns'] != 0]
 
-                        with col1:
-                            st.metric(
-                                "Buy Signals (X.1)",
-                                f"{len(buy_returns)} signals",
-                                f"{buy_returns.mean():.2f}% avg return" if len(buy_returns) > 0 else "N/A"
-                            )
+                            with col1:
+                                st.metric(
+                                    "Buy Signals (X.1)",
+                                    f"{len(buy_returns)} signals",
+                                    f"{buy_returns.mean():.2f}% avg return" if len(buy_returns) > 0 else "N/A"
+                                )
 
-                        with col2:
-                            st.metric(
-                                "Sell Signals (X.9)",
-                                f"{len(sell_returns)} signals",
-                                f"{sell_returns.mean():.2f}% avg return" if len(sell_returns) > 0 else "N/A"
-                            )
+                            with col2:
+                                st.metric(
+                                    "Sell Signals (X.9)",
+                                    f"{len(sell_returns)} signals",
+                                    f"{sell_returns.mean():.2f}% avg return" if len(sell_returns) > 0 else "N/A"
+                                )
 
-                        with col3:
-                            total_return = performance_data['buy_returns'].sum() + performance_data['sell_returns'].sum()
-                            st.metric(
-                                "Total Strategy Return",
-                                f"{total_return:.2f}%",
-                                f"vs {performance_data['benchmark_returns'].sum():.2f}% benchmark"
-                            )
+                            with col3:
+                                total_return = performance_data['buy_returns'].sum() + performance_data['sell_returns'].sum()
+                                st.metric(
+                                    "Total Strategy Return",
+                                    f"{total_return:.2f}%",
+                                    f"vs {performance_data['benchmark_returns'].sum():.2f}% benchmark"
+                                )
 
-                with tab3:
-                    # Signal history table
-                    if signals:
-                        signal_history = pd.DataFrame(signals)
-                        signal_history = signal_history[[
-                            'date', 'signal', 'price', 'distance_from_round', 
-                            'confidence', 'forward_return'
-                        ]].round(3)
-                        st.dataframe(signal_history, use_container_width=True)
-                    else:
-                        st.info("No signals generated for the selected period.")
+                    with tab3:
+                        # Signal history table
+                        if signals:
+                            signal_history = pd.DataFrame(signals)
+                            signal_history = signal_history[[
+                                'date', 'signal', 'price', 'distance_from_round', 
+                                'confidence', 'forward_return'
+                            ]].round(3)
+                            st.dataframe(signal_history, use_container_width=True)
+                        else:
+                            st.info("No signals generated for the selected period.")
 
-                with tab4:
-                    # Statistical analysis
-                    if signals:
-                        buy_signals = [s for s in signals if s['signal'] == 'BUY']
-                        sell_signals = [s for s in signals if s['signal'] == 'SELL']
+                    with tab4:
+                        # Statistical analysis
+                        if signals:
+                            buy_signals = [s for s in signals if s['signal'] == 'BUY']
+                            sell_signals = [s for s in signals if s['signal'] == 'SELL']
 
-                        col1, col2 = st.columns(2)
+                            col1, col2 = st.columns(2)
 
-                        with col1:
-                            st.subheader("Buy Signals (X.1) Statistics")
-                            if buy_signals:
-                                buy_returns = [s['forward_return'] for s in buy_signals]
-                                st.write(f"**Total Signals:** {len(buy_signals)}")
-                                st.write(f"**Average Return:** {np.mean(buy_returns):.2f}%")
-                                st.write(f"**Success Rate:** {sum(1 for r in buy_returns if r > 0) / len(buy_returns):.1%}")
-                                st.write(f"**Best Trade:** {max(buy_returns):.2f}%")
-                                st.write(f"**Worst Trade:** {min(buy_returns):.2f}%")
-                            else:
-                                st.write("No buy signals in this period")
+                            with col1:
+                                st.subheader("Buy Signals (X.1) Statistics")
+                                if buy_signals:
+                                    buy_returns = [s['forward_return'] for s in buy_signals]
+                                    st.write(f"**Total Signals:** {len(buy_signals)}")
+                                    st.write(f"**Average Return:** {np.mean(buy_returns):.2f}%")
+                                    st.write(f"**Success Rate:** {sum(1 for r in buy_returns if r > 0) / len(buy_returns):.1%}")
+                                    st.write(f"**Best Trade:** {max(buy_returns):.2f}%")
+                                    st.write(f"**Worst Trade:** {min(buy_returns):.2f}%")
+                                else:
+                                    st.write("No buy signals in this period")
 
-                        with col2:
-                            st.subheader("Sell Signals (X.9) Statistics")
-                            if sell_signals:
-                                sell_returns = [s['forward_return'] for s in sell_signals]
-                                st.write(f"**Total Signals:** {len(sell_signals)}")
-                                st.write(f"**Average Return:** {np.mean(sell_returns):.2f}%")
-                                st.write(f"**Success Rate:** {sum(1 for r in sell_returns if r < 0) / len(sell_returns):.1%}")
-                                st.write(f"**Best Trade:** {min(sell_returns):.2f}%")
-                                st.write(f"**Worst Trade:** {max(sell_returns):.2f}%")
-                            else:
-                                st.write("No sell signals in this period")
+                            with col2:
+                                st.subheader("Sell Signals (X.9) Statistics")
+                                if sell_signals:
+                                    sell_returns = [s['forward_return'] for s in sell_signals]
+                                    st.write(f"**Total Signals:** {len(sell_signals)}")
+                                    st.write(f"**Average Return:** {np.mean(sell_returns):.2f}%")
+                                    st.write(f"**Success Rate:** {sum(1 for r in sell_returns if r < 0) / len(sell_returns):.1%}")
+                                    st.write(f"**Best Trade:** {min(sell_returns):.2f}%")
+                                    st.write(f"**Worst Trade:** {max(sell_returns):.2f}%")
+                                else:
+                                    st.write("No sell signals in this period")
 
     # Documentation section
     with st.expander("📚 Strategy Documentation"):
