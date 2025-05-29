@@ -133,6 +133,11 @@ class DataManager:
 
             if not hist.empty:
                 current_price = hist['Close'].iloc[-1]
+                
+                # Get day's range from current day's data
+                day_low = hist['Low'].min()
+                day_high = hist['High'].max()
+                
                 return {
                     'symbol': symbol,
                     'current_price': current_price,
@@ -140,12 +145,25 @@ class DataManager:
                     'change': current_price - info.get('previousClose', current_price),
                     'change_percent': ((current_price - info.get('previousClose', current_price)) / 
                                      info.get('previousClose', current_price)) * 100,
-                    'volume': hist['Volume'].iloc[-1] if 'Volume' in hist.columns else 0
+                    'volume': hist['Volume'].iloc[-1] if 'Volume' in hist.columns else 0,
+                    'day_low': day_low,
+                    'day_high': day_high,
+                    'fifty_two_week_low': info.get('fiftyTwoWeekLow', 0),
+                    'fifty_two_week_high': info.get('fiftyTwoWeekHigh', 0)
                 }
         except Exception as e:
             st.error(f"Error getting real-time data for {symbol}: {str(e)}")
 
-        return {'symbol': symbol, 'current_price': 0, 'change': 0, 'change_percent': 0}
+        return {
+            'symbol': symbol, 
+            'current_price': 0, 
+            'change': 0, 
+            'change_percent': 0,
+            'day_low': 0,
+            'day_high': 0,
+            'fifty_two_week_low': 0,
+            'fifty_two_week_high': 0
+        }
 
 def create_price_chart(data: pd.DataFrame, symbol: str, signals: List[Dict]) -> go.Figure:
     """Create interactive price chart with clustering signals"""
@@ -546,6 +564,12 @@ def main():
                         </p>
                         <p style="margin: 5px 0;"><strong>Signal:</strong> 
                             <span style="color: {signal_color}; font-weight: bold;">{signal_data['signal']}</span>
+                        </p>
+                        <p style="margin: 5px 0; font-size: 12px;">
+                            <strong>Day's Range:</strong> ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}
+                        </p>
+                        <p style="margin: 5px 0; font-size: 12px;">
+                            <strong>52W Range:</strong> ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}
                         </p>
                         <p style="margin: 5px 0; font-size: 12px;">
                             Distance from round: {signal_data['distance_from_round']:+.3f}
