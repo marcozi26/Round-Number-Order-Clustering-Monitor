@@ -635,9 +635,9 @@ def main():
                     st.dataframe(signal_df[available_columns], use_container_width=True)
 
             # Detailed analysis section
-            st.header("📊 Detailed Analysis")
+        st.header("📊 Detailed Analysis")
 
-            selected_symbol = st.selectbox("Select symbol for detailed analysis:", symbols, key="detailed_analysis_symbol")
+        selected_symbol = st.selectbox("Select symbol for detailed analysis:", symbols, key="detailed_analysis_symbol")
 
         if selected_symbol:
                 # Fetch historical data
