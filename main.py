@@ -554,65 +554,69 @@ def main():
         # Real-time monitoring section
         st.header("🔴 Live Monitoring Dashboard")
 
-        # Create columns for the watchlist
-        cols = st.columns(min(len(symbols), 3))
-
         current_signals = []
 
-        for idx, symbol in enumerate(symbols):
-            with cols[idx % 3]:
-                # Get real-time data
-                real_time_data = data_manager.get_real_time_price(symbol)
+        # Only create columns if we have symbols
+        if symbols:
+            # Create columns for the watchlist
+            cols = st.columns(min(len(symbols), 3))
 
-                if real_time_data['current_price'] > 0:
-                    # Generate basic signal
-                    signal_data = analyzer.generate_signal(real_time_data['current_price'])
-                    signal_data['symbol'] = symbol
-                    signal_data['volume'] = real_time_data.get('volume', 0)
-                    
-                    # Get historical data for risk calculations
-                    historical_data = data_manager.fetch_stock_data(symbol, "1mo")
-                    
-                    # Enhance signal with risk management if risk params are available
-                    if 'risk_params' in locals() and not historical_data.empty:
-                        enhanced_signal = calculate_enhanced_signal_with_risk(
-                            signal_data, risk_manager, historical_data, risk_params
-                        )
-                        current_signals.append(enhanced_signal)
-                        
-                        # Display enhanced signal card
-                        display_enhanced_signal_card(enhanced_signal, real_time_data)
-                    else:
-                        current_signals.append(signal_data)
-                        
-                        # Display basic signal card (fallback)
-                        change_color = "green" if real_time_data['change'] >= 0 else "red"
-                        signal_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "gray"}[signal_data['signal']]
+            for idx, symbol in enumerate(symbols):
+                with cols[idx % 3]:
+                    # Get real-time data
+                    real_time_data = data_manager.get_real_time_price(symbol)
 
-                        st.markdown(f"""
-                        <div style="border: 2px solid {signal_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                            <h3 style="margin: 0; color: {signal_color};">{symbol}</h3>
-                            <p style="font-size: 24px; margin: 5px 0;">${real_time_data['current_price']:.2f}</p>
-                            <p style="color: {change_color}; margin: 5px 0;">
-                                {real_time_data['change']:+.2f} ({real_time_data['change_percent']:+.1f}%)
-                            </p>
-                            <p style="margin: 5px 0;"><strong>Signal:</strong> 
-                                <span style="color: {signal_color}; font-weight: bold;">{signal_data['signal']}</span>
-                            </p>
-                            <p style="margin: 5px 0; font-size: 12px;">
-                                <strong>Day's Range:</strong> ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}
-                            </p>
-                            <p style="margin: 5px 0; font-size: 12px;">
-                                <strong>52W Range:</strong> ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}
-                            </p>
-                            <p style="margin: 5px 0; font-size: 12px;">
-                                Distance from round: {signal_data['distance_from_round']:+.3f}
-                            </p>
-                            <p style="margin: 5px 0; font-size: 12px;">
-                                Confidence: {signal_data['confidence']:.1%}
-                            </p>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    if real_time_data['current_price'] > 0:
+                        # Generate basic signal
+                        signal_data = analyzer.generate_signal(real_time_data['current_price'])
+                        signal_data['symbol'] = symbol
+                        signal_data['volume'] = real_time_data.get('volume', 0)
+                        
+                        # Get historical data for risk calculations
+                        historical_data = data_manager.fetch_stock_data(symbol, "1mo")
+                        
+                        # Enhance signal with risk management if risk params are available
+                        if 'risk_params' in locals() and not historical_data.empty:
+                            enhanced_signal = calculate_enhanced_signal_with_risk(
+                                signal_data, risk_manager, historical_data, risk_params
+                            )
+                            current_signals.append(enhanced_signal)
+                            
+                            # Display enhanced signal card
+                            display_enhanced_signal_card(enhanced_signal, real_time_data)
+                        else:
+                            current_signals.append(signal_data)
+                            
+                            # Display basic signal card (fallback)
+                            change_color = "green" if real_time_data['change'] >= 0 else "red"
+                            signal_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "gray"}[signal_data['signal']]
+
+                            st.markdown(f"""
+                            <div style="border: 2px solid {signal_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
+                                <h3 style="margin: 0; color: {signal_color};">{symbol}</h3>
+                                <p style="font-size: 24px; margin: 5px 0;">${real_time_data['current_price']:.2f}</p>
+                                <p style="color: {change_color}; margin: 5px 0;">
+                                    {real_time_data['change']:+.2f} ({real_time_data['change_percent']:+.1f}%)
+                                </p>
+                                <p style="margin: 5px 0;"><strong>Signal:</strong> 
+                                    <span style="color: {signal_color}; font-weight: bold;">{signal_data['signal']}</span>
+                                </p>
+                                <p style="margin: 5px 0; font-size: 12px;">
+                                    <strong>Day's Range:</strong> ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}
+                                </p>
+                                <p style="margin: 5px 0; font-size: 12px;">
+                                    <strong>52W Range:</strong> ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}
+                                </p>
+                                <p style="margin: 5px 0; font-size: 12px;">
+                                    Distance from round: {signal_data['distance_from_round']:+.3f}
+                                </p>
+                                <p style="margin: 5px 0; font-size: 12px;">
+                                    Confidence: {signal_data['confidence']:.1%}
+                                </p>
+                            </div>
+                            """, unsafe_allow_html=True)
+        else:
+            st.info("Please add some stock symbols to your watchlist in the sidebar to start monitoring.")
 
         # Active signals summary
             active_signals = [s for s in current_signals if s['signal'] != 'NEUTRAL']
