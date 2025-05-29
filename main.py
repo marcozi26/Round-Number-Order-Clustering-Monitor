@@ -392,7 +392,7 @@ def main():
     # Risk management settings
     st.sidebar.subheader("⚙️ Strategy Settings")
     holding_period = st.sidebar.slider("Holding Period (days)", 1, 10, 5)
-    analysis_period = st.sidebar.selectbox("Analysis Period", ["1mo", "3mo", "6mo", "1y"], index=2)
+    analysis_period = st.sidebar.selectbox("Analysis Period", ["1mo", "3mo", "6mo", "1y"], index=2, key="analysis_period_select")
 
     # Auto-refresh settings
     auto_refresh = st.sidebar.checkbox("Auto Refresh", value=True)
@@ -637,7 +637,7 @@ def main():
             # Detailed analysis section
             st.header("📊 Detailed Analysis")
 
-            selected_symbol = st.selectbox("Select symbol for detailed analysis:", symbols)
+            selected_symbol = st.selectbox("Select symbol for detailed analysis:", symbols, key="detailed_analysis_symbol")
 
         if selected_symbol:
                 # Fetch historical data
