@@ -588,33 +588,33 @@ def main():
                             current_signals.append(signal_data)
                             
                             # Display basic signal card (fallback)
-                            change_color = "green" if real_time_data['change'] >= 0 else "red"
-                            signal_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "gray"}[signal_data['signal']]
-
-                            st.markdown(f"""
-                            <div style="border: 2px solid {signal_color}; border-radius: 10px; padding: 15px; margin: 10px 0;">
-                                <h3 style="margin: 0; color: {signal_color};">{symbol}</h3>
-                                <p style="font-size: 24px; margin: 5px 0;">${real_time_data['current_price']:.2f}</p>
-                                <p style="color: {change_color}; margin: 5px 0;">
-                                    {real_time_data['change']:+.2f} ({real_time_data['change_percent']:+.1f}%)
-                                </p>
-                                <p style="margin: 5px 0;"><strong>Signal:</strong> 
-                                    <span style="color: {signal_color}; font-weight: bold;">{signal_data['signal']}</span>
-                                </p>
-                                <p style="margin: 5px 0; font-size: 12px;">
-                                    <strong>Day's Range:</strong> ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}
-                                </p>
-                                <p style="margin: 5px 0; font-size: 12px;">
-                                    <strong>52W Range:</strong> ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}
-                                </p>
-                                <p style="margin: 5px 0; font-size: 12px;">
-                                    Distance from round: {signal_data['distance_from_round']:+.3f}
-                                </p>
-                                <p style="margin: 5px 0; font-size: 12px;">
-                                    Confidence: {signal_data['confidence']:.1%}
-                                </p>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            change = real_time_data['change']
+                            change_percent = real_time_data['change_percent']
+                            current_price = real_time_data['current_price']
+                            
+                            # Use Streamlit components instead of HTML
+                            signal_emoji = {"BUY": "📈", "SELL": "📉", "NEUTRAL": "➖"}[signal_data['signal']]
+                            
+                            with st.container():
+                                st.markdown(f"### {signal_emoji} {symbol}")
+                                st.markdown(f"**${current_price:.2f}**")
+                                
+                                # Change indicator
+                                if change >= 0:
+                                    st.success(f"+{change:.2f} (+{change_percent:.1f}%)")
+                                else:
+                                    st.error(f"{change:.2f} ({change_percent:.1f}%)")
+                                
+                                st.markdown(f"**Signal:** {signal_data['signal']}")
+                                
+                                # Additional details in expander
+                                with st.expander("Details"):
+                                    st.write(f"**Day's Range:** ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}")
+                                    st.write(f"**52W Range:** ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}")
+                                    st.write(f"**Distance from round:** {signal_data['distance_from_round']:+.3f}")
+                                    st.write(f"**Confidence:** {signal_data['confidence']:.1%}")
+                                
+                                st.divider()  # Add separator between cards
         else:
             st.info("Please add some stock symbols to your watchlist in the sidebar to start monitoring.")
 

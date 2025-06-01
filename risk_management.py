@@ -609,73 +609,86 @@ def calculate_enhanced_signal_with_risk(signal_data: Dict, risk_manager: RiskMan
 
 def display_enhanced_signal_card(signal_data: Dict, real_time_data: Dict):
     """
-    Display enhanced signal card with risk management information
+    Display enhanced signal card with risk management information using Streamlit components
     """
     symbol = signal_data.get('symbol', '')
     signal_type = signal_data.get('signal', 'NEUTRAL')
-    risk_color = signal_data.get('risk_color', 'gray')
     risk_level = signal_data.get('risk_level', 'UNKNOWN')
     
     # Color coding based on risk level
-    border_colors = {'HIGH': 'green', 'MEDIUM': 'orange', 'LOW': 'red', 'UNKNOWN': 'gray'}
-    border_color = border_colors.get(risk_level, 'gray')
+    border_colors = {'HIGH': '#28a745', 'MEDIUM': '#ffc107', 'LOW': '#dc3545', 'UNKNOWN': '#6c757d'}
+    border_color = border_colors.get(risk_level, '#6c757d')
     
-    change_color = "green" if real_time_data.get('change', 0) >= 0 else "red"
-    signal_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "gray"}[signal_type]
+    change = real_time_data.get('change', 0)
+    change_percent = real_time_data.get('change_percent', 0)
+    current_price = real_time_data.get('current_price', 0)
     
-    st.markdown(f"""
-    <div style="border: 3px solid {border_color}; border-radius: 10px; padding: 15px; margin: 10px 0; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; color: {signal_color};">{symbol}</h3>
-            <span style="background: {border_color}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: bold;">{risk_level}</span>
-        </div>
+    # Create container with custom styling
+    with st.container():
+        # Custom CSS for the card
+        st.markdown(f"""
+        <style>
+        .signal-card {{
+            border: 3px solid {border_color};
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+        }}
+        .signal-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }}
+        .risk-badge {{
+            background: {border_color};
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
         
-        <p style="font-size: 24px; margin: 5px 0; font-weight: bold;">${real_time_data.get('current_price', 0):.2f}</p>
+        # Header with symbol and risk level
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            signal_color = {"BUY": "🟢", "SELL": "🔴", "NEUTRAL": "⚪"}[signal_type]
+            st.markdown(f"### {signal_color} {symbol}")
+        with col2:
+            st.markdown(f'<span class="risk-badge">{risk_level}</span>', unsafe_allow_html=True)
         
-        <p style="color: {change_color}; margin: 5px 0; font-weight: bold;">
-            {real_time_data.get('change', 0):+.2f} ({real_time_data.get('change_percent', 0):+.1f}%)
-        </p>
+        # Price information
+        price_color = "green" if change >= 0 else "red"
+        st.markdown(f"**${current_price:.2f}**")
+        st.markdown(f":{price_color}[{change:+.2f} ({change_percent:+.1f}%)]")
         
-        <div style="border-top: 1px solid #eee; margin: 10px 0; padding-top: 10px;">
-            <p style="margin: 3px 0; font-size: 13px;"><strong>Signal:</strong> 
-                <span style="color: {signal_color}; font-weight: bold;">{signal_type}</span>
-            </p>
-            
-            <p style="margin: 3px 0; font-size: 12px;">
-                <strong>Position Size:</strong> {signal_data.get('position_size', 0):,} shares
-            </p>
-            
-            <p style="margin: 3px 0; font-size: 12px;">
-                <strong>Position Value:</strong> ${signal_data.get('position_value', 0):,.0f}
-            </p>
-            
-            <p style="margin: 3px 0; font-size: 12px;">
-                <strong>Stop Loss:</strong> ${signal_data.get('stop_loss', 0):.2f} ({signal_data.get('stop_loss_percent', 0):.1f}%)
-            </p>
-            
-            <p style="margin: 3px 0; font-size: 12px;">
-                <strong>Risk Amount:</strong> ${signal_data.get('risk_amount', 0):.0f}
-            </p>
-            
-            <p style="margin: 3px 0; font-size: 12px;">
-                <strong>ATR:</strong> ${signal_data.get('atr', 0):.2f} ({signal_data.get('atr_percent', 0):.1f}%)
-            </p>
-            
-            <p style="margin: 3px 0; font-size: 12px;">
-                <strong>Risk Score:</strong> {signal_data.get('risk_score', 0):.2f}/1.0
-            </p>
-        </div>
+        # Signal information
+        signal_emoji = {"BUY": "📈", "SELL": "📉", "NEUTRAL": "➖"}[signal_type]
+        st.markdown(f"**Signal:** {signal_emoji} {signal_type}")
         
-        <div style="border-top: 1px solid #eee; margin: 10px 0; padding-top: 8px;">
-            <p style="margin: 3px 0; font-size: 11px;">
-                <strong>Day's Range:</strong> ${real_time_data.get('day_low', 0):.2f} - ${real_time_data.get('day_high', 0):.2f}
-            </p>
-            <p style="margin: 3px 0; font-size: 11px;">
-                <strong>52W Range:</strong> ${real_time_data.get('fifty_two_week_low', 0):.2f} - ${real_time_data.get('fifty_two_week_high', 0):.2f}
-            </p>
-            <p style="margin: 3px 0; font-size: 11px;">
-                Distance from round: {signal_data.get('distance_from_round', 0):+.3f}
-            </p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        # Risk management metrics
+        if signal_data.get('position_size', 0) > 0:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric("Position Size", f"{signal_data.get('position_size', 0):,} shares")
+                st.metric("Stop Loss", f"${signal_data.get('stop_loss', 0):.2f}")
+                st.metric("ATR", f"${signal_data.get('atr', 0):.2f}")
+            
+            with col2:
+                st.metric("Position Value", f"${signal_data.get('position_value', 0):,.0f}")
+                st.metric("Risk Amount", f"${signal_data.get('risk_amount', 0):.0f}")
+                st.metric("Risk Score", f"{signal_data.get('risk_score', 0):.2f}/1.0")
+        
+        # Additional information
+        with st.expander("Additional Details"):
+            st.write(f"**Day's Range:** ${real_time_data.get('day_low', 0):.2f} - ${real_time_data.get('day_high', 0):.2f}")
+            st.write(f"**52W Range:** ${real_time_data.get('fifty_two_week_low', 0):.2f} - ${real_time_data.get('fifty_two_week_high', 0):.2f}")
+            st.write(f"**Distance from round:** {signal_data.get('distance_from_round', 0):+.3f}")
+            if signal_data.get('atr_percent'):
+                st.write(f"**ATR %:** {signal_data.get('atr_percent', 0):.1f}%")
+            if signal_data.get('stop_loss_percent'):
+                st.write(f"**Stop Loss %:** {signal_data.get('stop_loss_percent', 0):.1f}%")
