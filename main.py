@@ -378,8 +378,8 @@ def main():
     st.sidebar.subheader("📋 Watchlist")
 
     # Default watchlist
-    default_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"]
-
+    default_symbols = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "CRWD", "KO", "JPM", "JNJ",]
+    
     # Get user input for symbols
     symbols_input = st.sidebar.text_area(
         "Enter stock symbols (one per line):",
