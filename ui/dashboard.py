@@ -1,4 +1,3 @@
-
 """
 Dashboard UI components and layouts
 """
@@ -19,28 +18,28 @@ from risk_management import (
 def create_sidebar_config(default_symbols: List[str]) -> Dict:
     """Create sidebar configuration interface"""
     st.sidebar.header("Configuration")
-    
+
     # Watchlist management
     st.sidebar.subheader("📋 Watchlist")
-    
+
     # Get user input for symbols
     symbols_input = st.sidebar.text_area(
         "Enter stock symbols (one per line):",
         value="\n".join(default_symbols),
         height=120
     )
-    
+
     symbols = [s.strip().upper() for s in symbols_input.split('\n') if s.strip()]
-    
+
     # Strategy settings
     st.sidebar.subheader("⚙️ Strategy Settings")
     holding_period = st.sidebar.slider("Holding Period (days)", 1, 10, 5)
     analysis_period = st.sidebar.selectbox("Analysis Period", ["1mo", "3mo", "6mo", "1y"], index=2)
-    
+
     # Auto-refresh settings
     auto_refresh = st.sidebar.checkbox("Auto Refresh", value=True)
     refresh_interval = st.sidebar.slider("Refresh Interval (seconds)", 30, 300, 60)
-    
+
     return {
         'symbols': symbols,
         'holding_period': holding_period,
@@ -73,7 +72,7 @@ def handle_auto_refresh(auto_refresh: bool, refresh_interval: int):
 def create_buy_scanner(analyzer: StockClusteringAnalyzer, data_manager: DataManager) -> None:
     """Create the buy opportunities scanner section"""
     st.header("🎯 Potential Buy Stocks Scanner")
-    
+
     if st.button("🔍 Scan for Buy Opportunities", type="primary"):
         with st.spinner("Scanning stocks for buy signals..."):
             potential_buys = []
@@ -197,7 +196,7 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
                                data_manager: DataManager, risk_manager, risk_params) -> List[Dict]:
     """Create the watchlist monitoring section"""
     st.header("🔴 Live Monitoring Dashboard")
-    
+
     current_signals = []
 
     if symbols:
@@ -214,17 +213,17 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
                     signal_data = analyzer.generate_signal(real_time_data['current_price'])
                     signal_data['symbol'] = symbol
                     signal_data['volume'] = real_time_data.get('volume', 0)
-                    
+
                     # Get historical data for risk calculations
                     historical_data = data_manager.fetch_stock_data(symbol, "1mo")
-                    
+
                     # Enhance signal with risk management if risk params are available
                     if risk_params and not historical_data.empty:
                         enhanced_signal = calculate_enhanced_signal_with_risk(
                             signal_data, risk_manager, historical_data, risk_params
                         )
                         current_signals.append(enhanced_signal)
-                        
+
                         # Display enhanced signal card
                         display_enhanced_signal_card(enhanced_signal, real_time_data)
                     else:
@@ -232,7 +231,7 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
                         display_basic_signal_card(signal_data, real_time_data)
     else:
         st.info("Please add some stock symbols to your watchlist in the sidebar to start monitoring.")
-    
+
     return current_signals
 
 
@@ -242,29 +241,29 @@ def display_basic_signal_card(signal_data: Dict, real_time_data: Dict) -> None:
     change_percent = real_time_data['change_percent']
     current_price = real_time_data['current_price']
     symbol = signal_data['symbol']
-    
+
     # Use Streamlit components instead of HTML
     signal_emoji = {"BUY": "📈", "SELL": "📉", "NEUTRAL": "➖"}[signal_data['signal']]
-    
+
     with st.container():
         st.markdown(f"### {signal_emoji} {symbol}")
         st.markdown(f"**${current_price:.2f}**")
-        
+
         # Change indicator
         if change >= 0:
             st.success(f"+{change:.2f} (+{change_percent:.1f}%)")
         else:
             st.error(f"{change:.2f} ({change_percent:.1f}%)")
-        
+
         st.markdown(f"**Signal:** {signal_data['signal']}")
-        
+
         # Additional details in expander
         with st.expander("Details"):
             st.write(f"**Day's Range:** ${real_time_data['day_low']:.2f} - ${real_time_data['day_high']:.2f}")
             st.write(f"**52W Range:** ${real_time_data['fifty_two_week_low']:.2f} - ${real_time_data['fifty_two_week_high']:.2f}")
             st.write(f"**Distance from round:** {signal_data['distance_from_round']:+.3f}")
             st.write(f"**Confidence:** {signal_data['confidence']:.1%}")
-        
+
         st.divider()  # Add separator between cards
 
 

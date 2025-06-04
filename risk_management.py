@@ -72,6 +72,8 @@ class RiskManager:
             st.session_state.portfolio_peak = st.session_state.portfolio_balance
         if 'current_positions' not in st.session_state:
             st.session_state.current_positions = {}
+        if 'portfolio_allocation' not in st.session_state:
+            st.session_state.portfolio_allocation = {}
 
     def get_atr(self, data: pd.DataFrame, period: int = 14) -> float:
         """
@@ -297,6 +299,39 @@ class RiskManager:
             st.error(f"Error checking portfolio correlation: {str(e)}")
             return {'correlation_matrix': pd.DataFrame(), 'warnings': []}
 
+    def sync_portfolio_with_watchlist(self, symbols: List[str], data_manager) -> Dict[str, float]:
+        """
+        Sync portfolio positions with watchlist symbols
+        """
+        try:
+            position_values = {}
+            total_balance = st.session_state.portfolio_balance
+            
+            if not symbols:
+                return position_values
+            
+            # Get current allocations or create equal weight distribution
+            if not st.session_state.portfolio_allocation or set(symbols) != set(st.session_state.portfolio_allocation.keys()):
+                # Create equal weight allocation for all watchlist symbols
+                equal_weight = 100.0 / len(symbols)
+                st.session_state.portfolio_allocation = {symbol: equal_weight for symbol in symbols}
+            
+            # Calculate position values based on current prices and allocations
+            for symbol in symbols:
+                try:
+                    allocation_pct = st.session_state.portfolio_allocation.get(symbol, 0)
+                    allocation_value = total_balance * (allocation_pct / 100)
+                    position_values[symbol] = allocation_value
+                except Exception as e:
+                    st.error(f"Error calculating position for {symbol}: {str(e)}")
+                    position_values[symbol] = 0
+            
+            return position_values
+            
+        except Exception as e:
+            st.error(f"Error syncing portfolio with watchlist: {str(e)}")
+            return {}
+
     def check_sector_exposure(self, symbols: List[str], position_values: Dict[str, float]) -> Dict:
         """
         Check sector exposure limits
@@ -362,11 +397,69 @@ class DrawdownProtector:
         
         return drawdown > 5.0, drawdown, multiplier  # Start reducing at 5% drawdown
 
-def create_risk_management_interface(risk_manager: RiskManager, symbols: List[str]):
+def create_risk_management_interface(risk_manager: RiskManager, symbols: List[str], data_manager=None):
     """
     Create the risk management interface in Streamlit
     """
     st.header("⚠️ Risk Management Dashboard")
+    
+    # Portfolio Configuration Section
+    st.subheader("💼 Portfolio Configuration")
+    
+    if symbols:
+        st.write(f"**Watchlist Symbols:** {', '.join(symbols)}")
+        
+        # Portfolio allocation interface
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.write("**Portfolio Allocation (%):**")
+            allocation_changed = False
+            
+            # Initialize allocations if not set
+            if not st.session_state.portfolio_allocation or set(symbols) != set(st.session_state.portfolio_allocation.keys()):
+                equal_weight = 100.0 / len(symbols)
+                st.session_state.portfolio_allocation = {symbol: equal_weight for symbol in symbols}
+            
+            # Create allocation sliders
+            allocation_cols = st.columns(min(len(symbols), 3))
+            for i, symbol in enumerate(symbols):
+                with allocation_cols[i % 3]:
+                    current_allocation = st.session_state.portfolio_allocation.get(symbol, 0)
+                    new_allocation = st.slider(
+                        f"{symbol}", 
+                        min_value=0.0, 
+                        max_value=50.0, 
+                        value=current_allocation, 
+                        step=1.0,
+                        key=f"allocation_{symbol}"
+                    )
+                    if new_allocation != current_allocation:
+                        st.session_state.portfolio_allocation[symbol] = new_allocation
+                        allocation_changed = True
+        
+        with col2:
+            total_allocation = sum(st.session_state.portfolio_allocation.values())
+            if abs(total_allocation - 100.0) > 0.1:
+                st.warning(f"⚠️ Total allocation: {total_allocation:.1f}%")
+                if st.button("🔄 Normalize to 100%"):
+                    # Normalize allocations to sum to 100%
+                    if total_allocation > 0:
+                        for symbol in symbols:
+                            st.session_state.portfolio_allocation[symbol] = (
+                                st.session_state.portfolio_allocation[symbol] / total_allocation * 100
+                            )
+                        st.rerun()
+            else:
+                st.success(f"✅ Total allocation: {total_allocation:.1f}%")
+            
+            if st.button("⚖️ Equal Weight"):
+                equal_weight = 100.0 / len(symbols)
+                for symbol in symbols:
+                    st.session_state.portfolio_allocation[symbol] = equal_weight
+                st.rerun()
+    else:
+        st.info("Add symbols to your watchlist to configure your portfolio.")
     
     # Risk Parameters Section
     st.subheader("🎛️ Risk Parameters")
@@ -450,8 +543,21 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
     if symbols:
         st.subheader("🏭 Sector Exposure Analysis")
         
-        # Mock position values for demonstration
-        position_values = {symbol: 10000 for symbol in symbols[:5]}  # Assume $10k per position
+        # Use actual portfolio positions from watchlist
+        position_values = risk_manager.sync_portfolio_with_watchlist(symbols, data_manager)
+        
+        # Display current positions
+        if position_values:
+            st.write("**Current Position Values:**")
+            pos_cols = st.columns(min(len(position_values), 4))
+            for i, (symbol, value) in enumerate(position_values.items()):
+                with pos_cols[i % 4]:
+                    allocation_pct = st.session_state.portfolio_allocation.get(symbol, 0)
+                    st.metric(
+                        label=symbol,
+                        value=f"${value:,.0f}",
+                        delta=f"{allocation_pct:.1f}%"
+                    )
         
         sector_analysis = risk_manager.check_sector_exposure(symbols, position_values)
         
@@ -492,6 +598,39 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
             # Correlation warnings
             for warning in correlation_data['warnings']:
                 st.warning(f"🚨 {warning}")
+    
+    # Portfolio Performance Tracking
+    if symbols and position_values:
+        st.subheader("📈 Portfolio Performance")
+        
+        # Calculate total portfolio value
+        total_portfolio_value = sum(position_values.values())
+        portfolio_return = ((total_portfolio_value - st.session_state.portfolio_balance) / st.session_state.portfolio_balance) * 100
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Portfolio Value", f"${total_portfolio_value:,.0f}")
+        
+        with col2:
+            st.metric("Initial Balance", f"${st.session_state.portfolio_balance:,.0f}")
+        
+        with col3:
+            st.metric("Total Return", f"{portfolio_return:+.2f}%")
+        
+        with col4:
+            num_positions = len([v for v in position_values.values() if v > 0])
+            st.metric("Active Positions", num_positions)
+        
+        # Portfolio allocation pie chart
+        if len(position_values) > 1:
+            fig_portfolio = px.pie(
+                values=list(position_values.values()),
+                names=list(position_values.keys()),
+                title="Current Portfolio Allocation"
+            )
+            fig_portfolio.update_layout(height=400)
+            st.plotly_chart(fig_portfolio, use_container_width=True)
     
     # Time-based Risk Adjustment
     st.subheader("⏰ Time-based Risk Adjustment")
