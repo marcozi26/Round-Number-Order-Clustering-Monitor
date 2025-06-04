@@ -183,14 +183,14 @@ def display_scanner_insights(potential_buys: List[Dict]) -> None:
         st.metric("High Confidence Signals", f"{strong_signals}")
 
     # Export functionality
-    if st.button("📊 Download Buy List as CSV"):
-        csv = pd.DataFrame(potential_buys).to_csv(index=False)
-        st.download_button(
-            label="Download CSV",
-            data=csv,
-            file_name=f"buy_signals_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-            mime="text/csv"
-        )
+    csv_data = pd.DataFrame(potential_buys).to_csv(index=False)
+    st.download_button(
+        label="📊 Download Buy List as CSV",
+        data=csv_data,
+        file_name=f"buy_signals_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+        mime="text/csv",
+        type="secondary"
+    )
 
 
 def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAnalyzer, 
