@@ -15,7 +15,7 @@ from core.data_manager import DataManager
 from visualization.charts import create_price_chart, create_performance_chart
 
 # Import analysis
-from analysis.performance import analyze_historical_performance, calculate_performance_metrics
+from analysis.performance import analyze_historical_performance
 
 # Import UI components
 from ui.dashboard import (

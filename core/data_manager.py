@@ -2,12 +2,11 @@
 """
 Data management module for stock data fetching and caching
 """
-import streamlit as st
-import yfinance as yf
 import pandas as pd
+import yfinance as yf
+import streamlit as st
 import time
 from typing import Dict
-from config.settings import CACHE_DURATION
 
 
 class DataManager:
@@ -15,7 +14,7 @@ class DataManager:
 
     def __init__(self):
         self.cache = {}
-        self.cache_duration = CACHE_DURATION
+        self.cache_duration = 300  # 5 minutes cache
 
     def fetch_stock_data(self, symbol: str, period: str = "1mo") -> pd.DataFrame:
         """Fetch stock data with caching"""

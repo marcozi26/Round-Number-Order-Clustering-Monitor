@@ -1,9 +1,12 @@
 
 """
-Core analysis module for Round-Number Order Clustering strategy
+Core stock clustering analyzer module
 """
+import pandas as pd
+import numpy as np
 from typing import Dict
-from config.settings import X1_MIN_DISTANCE, X1_MAX_DISTANCE, X9_MIN_DISTANCE, X9_MAX_DISTANCE
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class StockClusteringAnalyzer:
@@ -32,9 +35,9 @@ class StockClusteringAnalyzer:
         """
         distance = self.get_round_number_distance(price)
 
-        if X1_MIN_DISTANCE <= distance <= X1_MAX_DISTANCE:  # X.1 range (e.g., 100.05 to 100.15)
+        if 0.05 <= distance <= 0.15:  # X.1 range (e.g., 100.05 to 100.15)
             return "X.1_BULLISH"
-        elif X9_MIN_DISTANCE <= distance <= X9_MAX_DISTANCE:  # X.9 range (e.g., 99.85 to 99.95)
+        elif -0.15 <= distance <= -0.05:  # X.9 range (e.g., 99.85 to 99.95)
             return "X.9_BEARISH"
         else:
             return "NEUTRAL"

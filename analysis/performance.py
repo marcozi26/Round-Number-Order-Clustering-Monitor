@@ -1,6 +1,6 @@
 
 """
-Performance analysis module
+Performance analysis module for the Round-Number Order Clustering strategy
 """
 import pandas as pd
 import numpy as np
@@ -64,7 +64,7 @@ def analyze_historical_performance(data: pd.DataFrame, analyzer: StockClustering
 
 
 def calculate_performance_metrics(signals: List[Dict]) -> Dict:
-    """Calculate various performance metrics"""
+    """Calculate comprehensive performance metrics"""
     if not signals:
         return {}
     
@@ -73,28 +73,28 @@ def calculate_performance_metrics(signals: List[Dict]) -> Dict:
     
     metrics = {}
     
-    # Buy signals statistics
+    # Buy signal metrics
     if buy_signals:
         buy_returns = [s['forward_return'] for s in buy_signals]
-        metrics['buy_stats'] = {
+        metrics['buy_metrics'] = {
             'total_signals': len(buy_signals),
-            'average_return': np.mean(buy_returns),
-            'success_rate': sum(1 for r in buy_returns if r > 0) / len(buy_returns),
+            'avg_return': np.mean(buy_returns),
+            'win_rate': sum(1 for r in buy_returns if r > 0) / len(buy_returns),
             'best_trade': max(buy_returns),
             'worst_trade': min(buy_returns),
-            'total_return': sum(buy_returns)
+            'std_return': np.std(buy_returns)
         }
     
-    # Sell signals statistics
+    # Sell signal metrics
     if sell_signals:
         sell_returns = [s['forward_return'] for s in sell_signals]
-        metrics['sell_stats'] = {
+        metrics['sell_metrics'] = {
             'total_signals': len(sell_signals),
-            'average_return': np.mean(sell_returns),
-            'success_rate': sum(1 for r in sell_returns if r < 0) / len(sell_returns),
+            'avg_return': np.mean(sell_returns),
+            'win_rate': sum(1 for r in sell_returns if r < 0) / len(sell_returns),  # Profitable sells are negative returns
             'best_trade': min(sell_returns),
             'worst_trade': max(sell_returns),
-            'total_return': sum(sell_returns)
+            'std_return': np.std(sell_returns)
         }
     
     return metrics
