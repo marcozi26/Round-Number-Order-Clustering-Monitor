@@ -307,7 +307,7 @@ class RiskManager:
             portfolio_positions = {}
             total_balance = st.session_state.portfolio_balance
             
-            if not symbols:
+            if not symbols or data_manager is None:
                 return portfolio_positions
             
             # Initialize position tracking if not exists
@@ -329,8 +329,11 @@ class RiskManager:
                     allocation_value = total_balance * (allocation_pct / 100)
                     
                     # Get current price
-                    real_time_data = data_manager.get_real_time_price(symbol)
-                    current_price = real_time_data.get('current_price', 0)
+                    if data_manager is not None:
+                        real_time_data = data_manager.get_real_time_price(symbol)
+                        current_price = real_time_data.get('current_price', 0)
+                    else:
+                        current_price = 0
                     
                     if current_price > 0:
                         # Calculate shares based on allocation
