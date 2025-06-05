@@ -229,6 +229,26 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
                     else:
                         current_signals.append(signal_data)
                         display_basic_signal_card(signal_data, real_time_data)
+        # Use actual portfolio positions from watchlist
+        portfolio_positions = risk_manager.sync_portfolio_with_watchlist(symbols, data_manager)
+        # Display current positions
+        if portfolio_positions:
+            st.write("**Current Positions:**")
+            pos_cols = st.columns(min(len(portfolio_positions), 4))
+            for i, position in enumerate(portfolio_positions):
+                with pos_cols[i % 4]:
+                    symbol = position['symbol']
+                    current_value = position['current_value']
+                    shares = position['shares']
+                    gain_loss = position['gain_loss']
+                    gain_loss_percent = position['gain_loss_percent']
+
+                    st.metric(
+                        label=symbol,
+                        value=f"${current_value:,.0f}",
+                        delta=f"{gain_loss:,.0f} ({gain_loss_percent:.1f}%)",
+                    )
+                    st.caption(f"{shares:.0f} Shares")
     else:
         st.info("Please add some stock symbols to your watchlist in the sidebar to start monitoring.")
 

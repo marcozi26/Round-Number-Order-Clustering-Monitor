@@ -299,16 +299,22 @@ class RiskManager:
             st.error(f"Error checking portfolio correlation: {str(e)}")
             return {'correlation_matrix': pd.DataFrame(), 'warnings': []}
 
-    def sync_portfolio_with_watchlist(self, symbols: List[str], data_manager) -> Dict[str, float]:
+    def sync_portfolio_with_watchlist(self, symbols: List[str], data_manager) -> Dict[str, Dict]:
         """
-        Sync portfolio positions with watchlist symbols
+        Sync portfolio positions with watchlist symbols and calculate shares
         """
         try:
-            position_values = {}
+            portfolio_positions = {}
             total_balance = st.session_state.portfolio_balance
             
             if not symbols:
-                return position_values
+                return portfolio_positions
+            
+            # Initialize position tracking if not exists
+            if 'position_entry_prices' not in st.session_state:
+                st.session_state.position_entry_prices = {}
+            if 'position_entry_dates' not in st.session_state:
+                st.session_state.position_entry_dates = {}
             
             # Get current allocations or create equal weight distribution
             if not st.session_state.portfolio_allocation or set(symbols) != set(st.session_state.portfolio_allocation.keys()):
@@ -316,39 +322,116 @@ class RiskManager:
                 equal_weight = 100.0 / len(symbols)
                 st.session_state.portfolio_allocation = {symbol: equal_weight for symbol in symbols}
             
-            # Calculate position values based on current prices and allocations
+            # Calculate position details for each symbol
             for symbol in symbols:
                 try:
                     allocation_pct = st.session_state.portfolio_allocation.get(symbol, 0)
                     allocation_value = total_balance * (allocation_pct / 100)
-                    position_values[symbol] = allocation_value
+                    
+                    # Get current price
+                    real_time_data = data_manager.get_real_time_price(symbol)
+                    current_price = real_time_data.get('current_price', 0)
+                    
+                    if current_price > 0:
+                        # Calculate shares based on allocation
+                        shares = int(allocation_value / current_price)
+                        current_value = shares * current_price
+                        
+                        # Track entry price if this is a new position or price has changed significantly
+                        if symbol not in st.session_state.position_entry_prices:
+                            st.session_state.position_entry_prices[symbol] = current_price
+                            st.session_state.position_entry_dates[symbol] = datetime.now().date()
+                        
+                        entry_price = st.session_state.position_entry_prices[symbol]
+                        entry_date = st.session_state.position_entry_dates.get(symbol, datetime.now().date())
+                        
+                        # Calculate P&L
+                        unrealized_pnl = (current_price - entry_price) * shares
+                        unrealized_pnl_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
+                        
+                        # Days held
+                        days_held = (datetime.now().date() - entry_date).days
+                        
+                        portfolio_positions[symbol] = {
+                            'allocation_value': allocation_value,
+                            'shares': shares,
+                            'current_price': current_price,
+                            'current_value': current_value,
+                            'entry_price': entry_price,
+                            'entry_date': entry_date,
+                            'unrealized_pnl': unrealized_pnl,
+                            'unrealized_pnl_pct': unrealized_pnl_pct,
+                            'days_held': days_held,
+                            'allocation_pct': allocation_pct
+                        }
+                    else:
+                        portfolio_positions[symbol] = {
+                            'allocation_value': allocation_value,
+                            'shares': 0,
+                            'current_price': 0,
+                            'current_value': 0,
+                            'entry_price': 0,
+                            'entry_date': datetime.now().date(),
+                            'unrealized_pnl': 0,
+                            'unrealized_pnl_pct': 0,
+                            'days_held': 0,
+                            'allocation_pct': allocation_pct
+                        }
+                        
                 except Exception as e:
                     st.error(f"Error calculating position for {symbol}: {str(e)}")
-                    position_values[symbol] = 0
+                    portfolio_positions[symbol] = {
+                        'allocation_value': 0,
+                        'shares': 0,
+                        'current_price': 0,
+                        'current_value': 0,
+                        'entry_price': 0,
+                        'entry_date': datetime.now().date(),
+                        'unrealized_pnl': 0,
+                        'unrealized_pnl_pct': 0,
+                        'days_held': 0,
+                        'allocation_pct': 0
+                    }
             
-            return position_values
+            return portfolio_positions
             
         except Exception as e:
             st.error(f"Error syncing portfolio with watchlist: {str(e)}")
             return {}
 
-    def check_sector_exposure(self, symbols: List[str], position_values: Dict[str, float]) -> Dict:
+    def check_sector_exposure(self, symbols: List[str], portfolio_positions: Dict[str, Dict]) -> Dict:
         """
-        Check sector exposure limits
+        Check sector exposure limits using detailed position data
         """
         try:
             sector_exposure = {}
-            total_value = sum(position_values.values())
+            sector_details = {}
+            total_value = sum(pos['current_value'] for pos in portfolio_positions.values())
             
             if total_value == 0:
-                return {'sector_exposure': {}, 'warnings': [], 'total_exposure': 0}
+                return {'sector_exposure': {}, 'sector_details': {}, 'warnings': [], 'total_exposure': 0}
             
-            # Calculate sector exposures
-            for symbol, value in position_values.items():
+            # Calculate sector exposures and collect details
+            for symbol, position in portfolio_positions.items():
+                value = position['current_value']
                 sector = self.sector_mapping.get(symbol, 'Unknown')
+                
                 if sector not in sector_exposure:
                     sector_exposure[sector] = 0
+                    sector_details[sector] = []
+                
                 sector_exposure[sector] += (value / total_value) * 100
+                sector_details[sector].append({
+                    'symbol': symbol,
+                    'shares': position['shares'],
+                    'current_price': position['current_price'],
+                    'current_value': position['current_value'],
+                    'entry_price': position['entry_price'],
+                    'unrealized_pnl': position['unrealized_pnl'],
+                    'unrealized_pnl_pct': position['unrealized_pnl_pct'],
+                    'days_held': position['days_held'],
+                    'allocation_pct': position['allocation_pct']
+                })
             
             # Check for violations
             warnings = []
@@ -358,13 +441,14 @@ class RiskManager:
             
             return {
                 'sector_exposure': sector_exposure,
+                'sector_details': sector_details,
                 'warnings': warnings,
                 'total_exposure': sum(sector_exposure.values())
             }
             
         except Exception as e:
             st.error(f"Error checking sector exposure: {str(e)}")
-            return {'sector_exposure': {}, 'warnings': [], 'total_exposure': 0}
+            return {'sector_exposure': {}, 'sector_details': {}, 'warnings': [], 'total_exposure': 0}
 
 class DrawdownProtector:
     """
@@ -544,22 +628,83 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
         st.subheader("🏭 Sector Exposure Analysis")
         
         # Use actual portfolio positions from watchlist
-        position_values = risk_manager.sync_portfolio_with_watchlist(symbols, data_manager)
+        portfolio_positions = risk_manager.sync_portfolio_with_watchlist(symbols, data_manager)
         
-        # Display current positions
-        if position_values:
-            st.write("**Current Position Values:**")
-            pos_cols = st.columns(min(len(position_values), 4))
-            for i, (symbol, value) in enumerate(position_values.items()):
-                with pos_cols[i % 4]:
-                    allocation_pct = st.session_state.portfolio_allocation.get(symbol, 0)
-                    st.metric(
-                        label=symbol,
-                        value=f"${value:,.0f}",
-                        delta=f"{allocation_pct:.1f}%"
-                    )
+        # Display detailed positions table
+        if portfolio_positions:
+            st.write("**Current Holdings & Performance:**")
+            
+            # Create detailed positions DataFrame
+            positions_data = []
+            total_unrealized_pnl = 0
+            total_current_value = 0
+            
+            for symbol, position in portfolio_positions.items():
+                if position['shares'] > 0:  # Only show positions with shares
+                    positions_data.append({
+                        'Symbol': symbol,
+                        'Shares': f"{position['shares']:,}",
+                        'Entry Price': f"${position['entry_price']:.2f}",
+                        'Current Price': f"${position['current_price']:.2f}",
+                        'Current Value': f"${position['current_value']:,.0f}",
+                        'Unrealized P&L': f"${position['unrealized_pnl']:+,.0f}",
+                        'P&L %': f"{position['unrealized_pnl_pct']:+.1f}%",
+                        'Days Held': position['days_held'],
+                        'Allocation': f"{position['allocation_pct']:.1f}%",
+                        'Sector': risk_manager.sector_mapping.get(symbol, 'Unknown')
+                    })
+                    total_unrealized_pnl += position['unrealized_pnl']
+                    total_current_value += position['current_value']
+            
+            if positions_data:
+                positions_df = pd.DataFrame(positions_data)
+                
+                # Color code P&L columns
+                def highlight_pnl(val):
+                    if 'P&L' in val.name:
+                        if isinstance(val, str):
+                            if '+' in val:
+                                return ['background-color: lightgreen'] * len(val)
+                            elif '-' in val:
+                                return ['background-color: lightcoral'] * len(val)
+                    return [''] * len(val)
+                
+                st.dataframe(
+                    positions_df,
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                # Portfolio summary metrics
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Total Portfolio Value", f"${total_current_value:,.0f}")
+                
+                with col2:
+                    total_pnl_pct = (total_unrealized_pnl / st.session_state.portfolio_balance) * 100 if st.session_state.portfolio_balance > 0 else 0
+                    st.metric("Total Unrealized P&L", f"${total_unrealized_pnl:+,.0f}", f"{total_pnl_pct:+.1f}%")
+                
+                with col3:
+                    winning_positions = sum(1 for pos in portfolio_positions.values() if pos['unrealized_pnl'] > 0 and pos['shares'] > 0)
+                    total_positions = sum(1 for pos in portfolio_positions.values() if pos['shares'] > 0)
+                    win_rate = (winning_positions / total_positions) * 100 if total_positions > 0 else 0
+                    st.metric("Win Rate", f"{win_rate:.0f}%", f"{winning_positions}/{total_positions}")
+                
+                with col4:
+                    avg_days_held = sum(pos['days_held'] for pos in portfolio_positions.values() if pos['shares'] > 0) / total_positions if total_positions > 0 else 0
+                    st.metric("Avg Days Held", f"{avg_days_held:.0f}")
+                
+                # Reset positions button
+                if st.button("🔄 Reset Entry Prices to Current Prices"):
+                    for symbol in symbols:
+                        if symbol in portfolio_positions and portfolio_positions[symbol]['current_price'] > 0:
+                            st.session_state.position_entry_prices[symbol] = portfolio_positions[symbol]['current_price']
+                            st.session_state.position_entry_dates[symbol] = datetime.now().date()
+                    st.success("Entry prices reset to current market prices!")
+                    st.rerun()
         
-        sector_analysis = risk_manager.check_sector_exposure(symbols, position_values)
+        sector_analysis = risk_manager.check_sector_exposure(symbols, portfolio_positions)
         
         if sector_analysis['sector_exposure']:
             # Sector pie chart
@@ -570,6 +715,42 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
             )
             fig_sector.update_layout(height=400)
             st.plotly_chart(fig_sector, use_container_width=True)
+            
+            # Detailed sector breakdown
+            if sector_analysis.get('sector_details'):
+                st.write("**Sector Performance Breakdown:**")
+                
+                for sector, stocks in sector_analysis['sector_details'].items():
+                    with st.expander(f"📊 {sector} Sector ({len(stocks)} stocks)"):
+                        sector_df_data = []
+                        sector_total_pnl = 0
+                        sector_total_value = 0
+                        
+                        for stock in stocks:
+                            if stock['shares'] > 0:
+                                sector_df_data.append({
+                                    'Symbol': stock['symbol'],
+                                    'Shares': f"{stock['shares']:,}",
+                                    'Current Price': f"${stock['current_price']:.2f}",
+                                    'Value': f"${stock['current_value']:,.0f}",
+                                    'P&L': f"${stock['unrealized_pnl']:+,.0f}",
+                                    'P&L %': f"{stock['unrealized_pnl_pct']:+.1f}%",
+                                    'Days': stock['days_held']
+                                })
+                                sector_total_pnl += stock['unrealized_pnl']
+                                sector_total_value += stock['current_value']
+                        
+                        if sector_df_data:
+                            sector_df = pd.DataFrame(sector_df_data)
+                            st.dataframe(sector_df, use_container_width=True, hide_index=True)
+                            
+                            # Sector summary
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.metric("Sector Value", f"${sector_total_value:,.0f}")
+                            with col2:
+                                sector_pnl_pct = (sector_total_pnl / sector_total_value) * 100 if sector_total_value > 0 else 0
+                                st.metric("Sector P&L", f"${sector_total_pnl:+,.0f}", f"{sector_pnl_pct:+.1f}%")
             
             # Sector warnings
             for warning in sector_analysis['warnings']:
@@ -600,37 +781,40 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
                 st.warning(f"🚨 {warning}")
     
     # Portfolio Performance Tracking
-    if symbols and position_values:
-        st.subheader("📈 Portfolio Performance")
+    if symbols and portfolio_positions:
+        st.subheader("📈 Portfolio Performance Summary")
         
-        # Calculate total portfolio value
-        total_portfolio_value = sum(position_values.values())
-        portfolio_return = ((total_portfolio_value - st.session_state.portfolio_balance) / st.session_state.portfolio_balance) * 100
+        # Calculate portfolio metrics
+        total_current_value = sum(pos['current_value'] for pos in portfolio_positions.values())
+        total_unrealized_pnl = sum(pos['unrealized_pnl'] for pos in portfolio_positions.values())
+        portfolio_return = (total_unrealized_pnl / st.session_state.portfolio_balance) * 100 if st.session_state.portfolio_balance > 0 else 0
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Portfolio Value", f"${total_portfolio_value:,.0f}")
+            st.metric("Current Portfolio Value", f"${total_current_value:,.0f}")
         
         with col2:
-            st.metric("Initial Balance", f"${st.session_state.portfolio_balance:,.0f}")
+            st.metric("Initial Investment", f"${st.session_state.portfolio_balance:,.0f}")
         
         with col3:
-            st.metric("Total Return", f"{portfolio_return:+.2f}%")
+            st.metric("Total Unrealized P&L", f"${total_unrealized_pnl:+,.0f}", f"{portfolio_return:+.2f}%")
         
         with col4:
-            num_positions = len([v for v in position_values.values() if v > 0])
+            num_positions = len([pos for pos in portfolio_positions.values() if pos['shares'] > 0])
             st.metric("Active Positions", num_positions)
         
-        # Portfolio allocation pie chart
-        if len(position_values) > 1:
-            fig_portfolio = px.pie(
-                values=list(position_values.values()),
-                names=list(position_values.keys()),
-                title="Current Portfolio Allocation"
-            )
-            fig_portfolio.update_layout(height=400)
-            st.plotly_chart(fig_portfolio, use_container_width=True)
+        # Portfolio allocation pie chart (current values)
+        if len(portfolio_positions) > 1:
+            chart_data = {symbol: pos['current_value'] for symbol, pos in portfolio_positions.items() if pos['current_value'] > 0}
+            if chart_data:
+                fig_portfolio = px.pie(
+                    values=list(chart_data.values()),
+                    names=list(chart_data.keys()),
+                    title="Current Portfolio Allocation by Value"
+                )
+                fig_portfolio.update_layout(height=400)
+                st.plotly_chart(fig_portfolio, use_container_width=True)
     
     # Time-based Risk Adjustment
     st.subheader("⏰ Time-based Risk Adjustment")
