@@ -88,10 +88,25 @@ def create_buy_scanner(analyzer: StockClusteringAnalyzer, data_manager: DataMana
                     progress_bar.progress(progress)
                     status_text.text(f"Scanning {symbol}... ({i+1}/{len(STOCK_UNIVERSE)})")
 
-                    # Get real-time data
-                    real_time_data = data_manager.get_real_time_price(symbol)
+                    # Get real-time data with retry logic
+                    max_retries = 2
+                    retry_count = 0
+                    real_time_data = None
+                    
+                    while retry_count < max_retries and real_time_data is None:
+                        try:
+                            real_time_data = data_manager.get_real_time_price(symbol)
+                            if real_time_data['current_price'] <= 0:
+                                real_time_data = None
+                                raise ValueError("Invalid price data")
+                        except Exception as retry_error:
+                            retry_count += 1
+                            if retry_count < max_retries:
+                                time.sleep(1.0)  # Wait longer before retry
+                            else:
+                                status_text.text(f"Failed to get data for {symbol} after {max_retries} attempts")
 
-                    if real_time_data['current_price'] > 0:
+                    if real_time_data and real_time_data['current_price'] > 0:
                         # Generate signal
                         signal_data = analyzer.generate_signal(real_time_data['current_price'])
 
@@ -107,10 +122,15 @@ def create_buy_scanner(analyzer: StockClusteringAnalyzer, data_manager: DataMana
                                 'Reasoning': signal_data['reasoning']
                             })
 
-                    # Small delay to avoid overwhelming the API
-                    time.sleep(0.1)
+                    # Increased delay and better rate limiting
+                    time.sleep(0.5)  # 500ms delay between requests
 
                 except Exception as e:
+                    # Log specific error types for debugging
+                    error_msg = str(e)
+                    if "rate limit" in error_msg.lower() or "too many requests" in error_msg.lower():
+                        status_text.text(f"Rate limit hit for {symbol}, waiting...")
+                        time.sleep(2.0)  # Longer wait for rate limits
                     continue  # Skip problematic symbols
 
             # Clear progress indicators
