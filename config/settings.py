@@ -54,7 +54,7 @@ STOCK_UNIVERSE = [
     "JPM", "BAC", "WFC", "C", "GS", "MS", "BLK", "AXP", "V", "MA",
     "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "TMO", "ABT", "DHR", "BMY",
     "KO", "PEP", "WMT", "PG", "HD", "MCD", "COST", "LOW", "TGT", "SBUX",
-    "DIS", "CMCSA", "VZ", "T", "CHTR", "TMUS", "DISH", "PARA", "WBD", "NWSA",
+    "DIS", "CMCSA", "VZ", "T", "CHTR", "TMUS", "PARA", "WBD", "NWSA",
     "XOM", "CVX", "COP", "EOG", "SLB", "OXY", "PSX", "VLO", "MPC", "HES",
     "BA", "RTX", "LMT", "NOC", "GD", "HON", "MMM", "CAT", "DE", "EMR"
 ]

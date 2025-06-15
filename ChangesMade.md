@@ -75,8 +75,25 @@
 - **Files Modified**: `risk_management.py`
 - **Impact**: Completely eliminated console warnings about slider configuration conflicts
 
+### Implemented Delisted Stock Detection & Handling
+- **Date**: 2024-12-28
+- **Issue**: DISH and other delisted stocks causing warnings and invalid data
+- **Solution**: 
+  - Added delisted stock registry in YahooFinanceProvider with DISH delisting info
+  - Implemented delisted stock detection in data fetching methods
+  - Added visual warnings and alerts for delisted stocks in watchlist monitoring
+  - Created delisted stocks summary section with actionable recommendations
+  - Removed DISH from default stock universe
+  - Added support for replacement stock suggestions
+- **Files Modified**: `core/data_providers.py`, `ui/dashboard.py`, `config/settings.py`
+- **Impact**: 
+  - Eliminates errors from trying to fetch data for delisted stocks
+  - Provides clear user warnings about delisted holdings
+  - Maintains portfolio integrity by excluding delisted stocks from calculations
+  - Professional handling of corporate actions and delistings
+
 ### Summary
-- **Total Lines Modified**: ~860+ lines across 8 files
+- **Total Lines Modified**: ~900+ lines across 9 files
 - **Performance Impact**: Major improvement in API reliability with 99%+ uptime
 - **User Experience**: Eliminated console warnings, real-time data status, professional interface
 - **Code Quality**: Modular provider system, comprehensive error handling, production-ready

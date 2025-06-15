@@ -291,6 +291,7 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
     st.header("🔴 Live Monitoring Dashboard")
 
     current_signals = []
+    delisted_symbols = []
 
     if symbols:
         # Create columns for the watchlist
@@ -300,6 +301,23 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
             with cols[idx % 3]:
                 # Get real-time data
                 real_time_data = data_manager.get_real_time_price(symbol)
+
+                # Check if stock is delisted
+                if real_time_data.get('delisted', False):
+                    delisted_symbols.append({
+                        'symbol': symbol,
+                        'date': real_time_data.get('delisted_date', 'Unknown'),
+                        'reason': real_time_data.get('delisted_reason', 'Unknown'),
+                        'replacement': real_time_data.get('replacement', None)
+                    })
+                    
+                    # Display delisted stock warning
+                    st.error(f"⚠️ **{symbol} DELISTED**")
+                    st.caption(f"Delisted: {real_time_data.get('delisted_date', 'Unknown')}")
+                    st.caption(f"Reason: {real_time_data.get('delisted_reason', 'Unknown')}")
+                    if real_time_data.get('replacement'):
+                        st.info(f"Consider: {real_time_data.get('replacement')}")
+                    continue
 
                 if real_time_data['current_price'] > 0:
                     # Generate basic signal
@@ -322,8 +340,24 @@ def create_watchlist_monitoring(symbols: List[str], analyzer: StockClusteringAna
                     else:
                         current_signals.append(signal_data)
                         display_basic_signal_card(signal_data, real_time_data)
-        # Use actual portfolio positions from watchlist
-        portfolio_positions = risk_manager.sync_portfolio_with_watchlist(symbols, data_manager)
+        # Display delisted stocks warning if any
+        if delisted_symbols:
+            st.divider()
+            st.subheader("⚠️ Delisted Stocks Alert")
+            
+            delisted_df = pd.DataFrame(delisted_symbols)
+            st.error("The following stocks in your watchlist have been delisted:")
+            st.dataframe(delisted_df, use_container_width=True, hide_index=True)
+            
+            st.warning("**Action Required:** Remove these symbols from your watchlist and consider alternatives.")
+            
+            if st.button("🗑️ Remove All Delisted Stocks from Watchlist"):
+                # This would require a callback to modify the watchlist
+                st.info("Please manually remove delisted stocks from your watchlist configuration.")
+
+        # Use actual portfolio positions from watchlist (exclude delisted)
+        active_symbols = [s for s in symbols if s not in [d['symbol'] for d in delisted_symbols]]
+        portfolio_positions = risk_manager.sync_portfolio_with_watchlist(active_symbols, data_manager)
         
         # Display current positions
         if portfolio_positions:

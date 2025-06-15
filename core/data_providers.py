@@ -41,6 +41,12 @@ class YahooFinanceProvider(DataProvider):
         self.name = "Yahoo Finance"
         self.rate_limit_delay = 0.5
         self.last_request_time = 0
+        
+        # Known delisted stocks
+        self.delisted_stocks = {
+            'DISH': {'date': '2024-12-01', 'reason': 'Acquired by EchoStar', 'replacement': None},
+            # Add more delisted stocks as needed
+        }
     
     def _rate_limit(self):
         """Implement rate limiting"""
@@ -53,6 +59,27 @@ class YahooFinanceProvider(DataProvider):
     def get_quote(self, symbol: str) -> Dict:
         """Get real-time quote from Yahoo Finance"""
         try:
+            # Check if stock is delisted
+            if symbol in self.delisted_stocks:
+                delisted_info = self.delisted_stocks[symbol]
+                return {
+                    'symbol': symbol,
+                    'current_price': 0,
+                    'previous_close': 0,
+                    'change': 0,
+                    'change_percent': 0,
+                    'volume': 0,
+                    'day_low': 0,
+                    'day_high': 0,
+                    'fifty_two_week_low': 0,
+                    'fifty_two_week_high': 0,
+                    'provider': self.name,
+                    'delisted': True,
+                    'delisted_date': delisted_info['date'],
+                    'delisted_reason': delisted_info['reason'],
+                    'replacement': delisted_info['replacement']
+                }
+            
             self._rate_limit()
             ticker = yf.Ticker(symbol)
             
@@ -90,6 +117,10 @@ class YahooFinanceProvider(DataProvider):
     def get_historical(self, symbol: str, period: str) -> pd.DataFrame:
         """Get historical data from Yahoo Finance"""
         try:
+            # Check if stock is delisted
+            if symbol in self.delisted_stocks:
+                return pd.DataFrame()  # Return empty DataFrame for delisted stocks
+            
             self._rate_limit()
             ticker = yf.Ticker(symbol)
             return ticker.history(period=period)
