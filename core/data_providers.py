@@ -128,7 +128,11 @@ class AlphaVantageProvider(DataProvider):
     
     def __init__(self, api_key: Optional[str] = None):
         self.name = "Alpha Vantage"
-        self.api_key = api_key or st.secrets.get("ALPHA_VANTAGE_API_KEY", "demo")
+        # Safely access secrets with fallback
+        try:
+            self.api_key = api_key or st.secrets.get("ALPHA_VANTAGE_API_KEY", "demo")
+        except:
+            self.api_key = "demo"
         self.base_url = "https://www.alphavantage.co/query"
         self.rate_limit_delay = 1.0  # Alpha Vantage has stricter limits
         self.last_request_time = 0
@@ -248,7 +252,11 @@ class FinnhubProvider(DataProvider):
     
     def __init__(self, api_key: Optional[str] = None):
         self.name = "Finnhub"
-        self.api_key = api_key or st.secrets.get("FINNHUB_API_KEY", "")
+        # Safely access secrets with fallback
+        try:
+            self.api_key = api_key or st.secrets.get("FINNHUB_API_KEY", "")
+        except:
+            self.api_key = ""
         self.base_url = "https://finnhub.io/api/v1"
         self.rate_limit_delay = 0.1
         self.last_request_time = 0
