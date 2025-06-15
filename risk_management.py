@@ -513,9 +513,11 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
             for i, symbol in enumerate(symbols):
                 with allocation_cols[i % 3]:
                     current_allocation = st.session_state.portfolio_allocation.get(symbol, 0)
-                    # Ensure value is within min/max bounds and aligns with step
-                    safe_value = max(0.0, min(50.0, float(current_allocation)))
-                    safe_value = round(safe_value)  # Align with step=1.0
+                    # Ensure value is a float and within bounds
+                    if isinstance(current_allocation, (list, tuple)):
+                        current_allocation = current_allocation[0] if current_allocation else 0.0
+                    safe_value = float(max(0.0, min(50.0, current_allocation)))
+                    safe_value = round(safe_value, 1)  # Align with step=1.0
                     new_allocation = st.slider(
                         f"{symbol}", 
                         min_value=0.0, 
