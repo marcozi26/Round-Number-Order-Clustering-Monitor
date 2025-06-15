@@ -209,9 +209,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# Import risk management components  
-from risk_management import (
-    DrawdownProtector, 
-    calculate_enhanced_signal_with_risk,
-    display_enhanced_signal_card
-)
