@@ -516,8 +516,11 @@ def create_risk_management_interface(risk_manager: RiskManager, symbols: List[st
                     if isinstance(current_allocation, (list, tuple)):
                         current_allocation = current_allocation[0] if current_allocation else 0.0
                     safe_value = float(max(0.0, min(50.0, current_allocation)))
-                    # Ensure value is a proper integer step (no decimals for step=1.0)
+                    # Convert to proper integer that aligns with step=1
                     safe_value = int(round(safe_value))
+                    # Ensure the value is within the min/max range and aligns with step
+                    safe_value = max(0, min(50, safe_value))
+                    
                     new_allocation = st.slider(
                         f"{symbol}", 
                         min_value=0, 
