@@ -24,7 +24,8 @@ from ui.dashboard import (
     create_buy_scanner,
     create_watchlist_monitoring,
     display_active_signals,
-    create_documentation_section
+    create_documentation_section,
+    create_data_sources_status
 )
 
 # Import risk management components
@@ -167,6 +168,11 @@ def main():
         risk_params = create_risk_management_interface(risk_manager, config['symbols'])
 
     with main_tab1:
+        # Data sources status
+        create_data_sources_status(data_manager)
+        
+        st.divider()
+        
         # Main dashboard
         if config['symbols']:
             # Buy scanner section

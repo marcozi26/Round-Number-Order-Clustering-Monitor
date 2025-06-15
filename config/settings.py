@@ -15,6 +15,33 @@ X9_MAX_DISTANCE = -0.05  # Maximum distance for X.9 classification (negative)
 # Data Management
 CACHE_DURATION = 300  # 5 minutes cache duration
 
+# Data Provider Configuration
+API_KEYS = {
+    'ALPHA_VANTAGE': None,  # Set in Streamlit secrets as ALPHA_VANTAGE_API_KEY
+    'FINNHUB': None,        # Set in Streamlit secrets as FINNHUB_API_KEY
+    'POLYGON': None,        # Set in Streamlit secrets as POLYGON_API_KEY (future enhancement)
+    'IEX_CLOUD': None,      # Set in Streamlit secrets as IEX_CLOUD_API_KEY (future enhancement)
+}
+
+# Data Provider Settings
+PROVIDER_SETTINGS = {
+    'YAHOO_FINANCE': {
+        'rate_limit_delay': 0.5,
+        'timeout': 10,
+        'priority': 1
+    },
+    'ALPHA_VANTAGE': {
+        'rate_limit_delay': 1.0,
+        'timeout': 15,
+        'priority': 2
+    },
+    'FINNHUB': {
+        'rate_limit_delay': 0.1,
+        'timeout': 10,
+        'priority': 3
+    }
+}
+
 # Default Symbols
 DEFAULT_WATCHLIST = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN", "CRWD", "KO", "JPM", "JNJ"]
 

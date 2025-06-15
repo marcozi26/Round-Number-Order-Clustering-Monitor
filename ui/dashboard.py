@@ -15,6 +15,79 @@ from risk_management import (
 )
 
 
+def create_data_sources_status(data_manager: DataManager) -> None:
+    """Create data sources status monitoring section"""
+    st.subheader("📡 Data Sources Status")
+    
+    try:
+        provider_status = data_manager.get_provider_status()
+        
+        # Market status
+        market_status = provider_status['market_status']
+        is_open = provider_status['is_market_open']
+        is_premarket = provider_status['is_premarket']
+        is_afterhours = provider_status['is_afterhours']
+        
+        # Display market status
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if is_open:
+                st.success(f"🟢 Market: {market_status}")
+            else:
+                st.info(f"🔴 Market: {market_status}")
+        
+        with col2:
+            if is_premarket:
+                st.warning("🌅 Pre-Market Active")
+            else:
+                st.empty()
+        
+        with col3:
+            if is_afterhours:
+                st.warning("🌙 After-Hours Active")
+            else:
+                st.empty()
+        
+        with col4:
+            refresh_rate = "1 min" if is_open else "5 min"
+            st.info(f"⏱️ Refresh: {refresh_rate}")
+        
+        # Provider status
+        st.write("**Data Provider Status:**")
+        provider_cols = st.columns(len(provider_status['providers']))
+        
+        for i, (provider_name, is_healthy) in enumerate(provider_status['providers'].items()):
+            with provider_cols[i]:
+                if is_healthy:
+                    st.success(f"✅ {provider_name}")
+                else:
+                    st.error(f"❌ {provider_name}")
+        
+        # Add provider details in expander
+        with st.expander("📊 Provider Details"):
+            st.write("**Primary Providers:**")
+            st.write("• **Yahoo Finance**: Free, reliable, good for most stocks")
+            st.write("• **Alpha Vantage**: Professional data, requires API key")
+            st.write("• **Finnhub**: Real-time data, requires API key")
+            
+            st.write("\n**Fallback Strategy:**")
+            st.write("1. Try Yahoo Finance first (fastest, most reliable)")
+            st.write("2. Fallback to Alpha Vantage if Yahoo fails")
+            st.write("3. Fallback to Finnhub as last resort")
+            st.write("4. Cache successful responses to reduce API calls")
+            
+            if not provider_status['providers'].get('Alpha Vantage', False):
+                st.info("💡 **Tip**: Add Alpha Vantage API key in Secrets for backup data source")
+            
+            if not provider_status['providers'].get('Finnhub', False):
+                st.info("💡 **Tip**: Add Finnhub API key in Secrets for real-time data")
+    
+    except Exception as e:
+        st.error(f"Error retrieving data sources status: {str(e)}")
+        st.info("Using fallback data source (Yahoo Finance only)")
+
+
 def create_sidebar_config(default_symbols: List[str]) -> Dict:
     """Create sidebar configuration interface"""
     st.sidebar.header("Configuration")
